@@ -103,72 +103,47 @@
 </div>
 
 <script>
-
-    // --- 讓 App 記住你是誰的魔法 ---
-
-// 1. 定義一個變數來存名字
-let currentUser = "";
-
-// 2. 網頁一打開就執行以下判斷
-function initializeUser() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const nameFromUrl = urlParams.get('name');
-    const savedName = localStorage.getItem('checkin_user_name');
-
-    if (nameFromUrl) {
-        // 如果網址有名字，優先使用並存入手機記憶體
-        currentUser = nameFromUrl;
-        localStorage.setItem('checkin_user_name', nameFromUrl);
-    } else if (savedName) {
-        // 如果網址沒名字，但手機以前記過，就直接拿來用
-        currentUser = savedName;
-    }
-
-    // 3. 如果抓到了名字（不論是網址還是記憶體），就隱藏輸入框
-    if (currentUser) {
-        document.getElementById('greeting').innerText = "HELLO, " + currentUser.toUpperCase();
-        document.getElementById('inputArea').style.display = 'none';
-    }
-}
-
-// 執行初始化
-initializeUser();
-
-// 修改原本的 handleCheckIn 函數第一行
-function handleCheckIn() {
-    // 優先使用我們抓到的名字，真的都沒有才去抓輸入框
-    const name = currentUser || document.getElementById('username').value;
-    if (!name) return alert("Please enter your name");
-    
-    // ... 以下維持原本的定位與傳送代碼 ...
-}
-    // --- 【設定區】 ---
-    const TARGET_LAT = 25.08405444756406; // 記得改
-    const TARGET_LNG = 121.54036143665965; // 記得改
+    // --- 【1. 設定區】 ---
+    const TARGET_LAT = 25.08405444756406; // 記得確認改為你的座標
+    const TARGET_LNG = 121.54036143665965; 
     const MAX_DISTANCE = 0.2; 
-    const WEB_APP_URL = "1RI6rQ8b8Wh3ovs5ElRkzplkMUKog9WcX93UxgyoFvaI"; 
-    // ----------------
+    const WEB_APP_URL = "1RI6rQ8b8Wh3ovs5ElRkzplkMUKog9WcX93UxgyoFvaI
+"; 
 
+    // --- 【2. 核心邏輯：名字記憶與讀取】 ---
+    // 網頁一載入就執行，並確保名字被全域記住
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentUser = urlParams.get('name') || localStorage.getItem('checkin_user_name') || "";
+
+    if (currentUser) {
+        // 存入手機記憶體
+        localStorage.setItem('checkin_user_name', currentUser);
+        // 更新介面
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('greeting').innerText = "HELLO, " + currentUser.toUpperCase();
+            document.getElementById('inputArea').style.display = 'none';
+        });
+    }
+
+    // --- 【3. 時鐘功能】 ---
     function updateTime() {
         const now = new Date();
-        // 預設為使用者本地時間，解決時區問題
         const dateOptions = { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' };
         document.getElementById('date').innerText = now.toLocaleDateString('zh-TW', dateOptions);
-        document.getElementById('time').innerText = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+        document.getElementById('time').innerText = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
     setInterval(updateTime, 1000);
-    updateTime();
+    document.addEventListener('DOMContentLoaded', updateTime);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const nameFromUrl = urlParams.get('name');
-    if (nameFromUrl) {
-        document.getElementById('greeting').innerText = "HELLO, " + nameFromUrl.toUpperCase();
-        document.getElementById('inputArea').style.display = 'none';
-    }
-
+    // --- 【4. 打卡邏輯】 ---
     function handleCheckIn() {
-        const name = nameFromUrl || document.getElementById('username').value;
-        if (!name) return alert("Please enter your name");
+        // 重新抓取一次名字，確保萬無一失
+        const finalName = currentUser || document.getElementById('username').value;
+        
+        if (!finalName || finalName.trim() === "") {
+            alert("Please enter your name");
+            return;
+        }
 
         document.getElementById('status').innerText = "📍 LOCATING...";
 
@@ -176,20 +151,20 @@ function handleCheckIn() {
             const distance = getDistance(position.coords.latitude, position.coords.longitude, TARGET_LAT, TARGET_LNG);
 
             if (distance <= MAX_DISTANCE) {
-                // 成功：觸發五彩碎紙效果！
                 confetti({
                     particleCount: 150,
                     spread: 70,
                     origin: { y: 0.6 },
                     colors: ['#ffffff', '#764ba2', '#667eea']
                 });
-                sendData(name, position.coords.latitude, position.coords.longitude);
+                sendData(finalName, position.coords.latitude, position.coords.longitude);
             } else {
                 document.getElementById('status').innerText = "❌ TOO FAR (" + (distance * 1000).toFixed(0) + "m)";
+                alert("您不在打卡範圍內喔！");
             }
-        }, function() {
-            alert("Please enable GPS");
-        });
+        }, function(error) {
+            alert("無法獲取位置，請開啟 GPS 權限");
+        }, { enableHighAccuracy: true });
     }
 
     function getDistance(lat1, lon1, lat2, lon2) {
@@ -211,13 +186,16 @@ function handleCheckIn() {
                 location: lat.toFixed(4) + "," + lng.toFixed(4)
             })
         }).then(() => {
-            document.getElementById('status').innerText = "✅ CHECKED IN SUCCESSFULLY!";
+            document.getElementById('status').innerText = "✅ CHECKED IN!";
+        }).catch(err => {
+            alert("傳送失敗，請檢查網路");
         });
     }
 </script>
 
 </body>
 </html>
+
 
 
 
