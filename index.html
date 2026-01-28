@@ -103,6 +103,45 @@
 </div>
 
 <script>
+
+    // --- 讓 App 記住你是誰的魔法 ---
+
+// 1. 定義一個變數來存名字
+let currentUser = "";
+
+// 2. 網頁一打開就執行以下判斷
+function initializeUser() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const nameFromUrl = urlParams.get('name');
+    const savedName = localStorage.getItem('checkin_user_name');
+
+    if (nameFromUrl) {
+        // 如果網址有名字，優先使用並存入手機記憶體
+        currentUser = nameFromUrl;
+        localStorage.setItem('checkin_user_name', nameFromUrl);
+    } else if (savedName) {
+        // 如果網址沒名字，但手機以前記過，就直接拿來用
+        currentUser = savedName;
+    }
+
+    // 3. 如果抓到了名字（不論是網址還是記憶體），就隱藏輸入框
+    if (currentUser) {
+        document.getElementById('greeting').innerText = "HELLO, " + currentUser.toUpperCase();
+        document.getElementById('inputArea').style.display = 'none';
+    }
+}
+
+// 執行初始化
+initializeUser();
+
+// 修改原本的 handleCheckIn 函數第一行
+function handleCheckIn() {
+    // 優先使用我們抓到的名字，真的都沒有才去抓輸入框
+    const name = currentUser || document.getElementById('username').value;
+    if (!name) return alert("Please enter your name");
+    
+    // ... 以下維持原本的定位與傳送代碼 ...
+}
     // --- 【設定區】 ---
     const TARGET_LAT = 25.08405444756406; // 記得改
     const TARGET_LNG = 121.54036143665965; // 記得改
@@ -179,6 +218,7 @@
 
 </body>
 </html>
+
 
 
 
