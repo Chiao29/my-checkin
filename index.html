@@ -2,85 +2,90 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>雲端打卡系統</title>
     <style>
-        /* 這裡設定宋瓷風的淡青色 */
         body { font-family: "Microsoft JhengHei", sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #f0f5f5; margin: 0; }
-        .card { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
-        input { padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; width: 200px; }
-        button { background-color: #c1d8d3; color: #333; border: none; padding: 20px 40px; border-radius: 50px; font-size: 1.2rem; cursor: pointer; transition: 0.3s; }
-        button:hover { background-color: #a8c3bc; }
+        .card { background: white; padding: 2.5rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; width: 80%; max-width: 400px; }
+        h2 { color: #5a7d75; margin-bottom: 1.5rem; }
+        input { padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        button { background-color: #c1d8d3; color: #333; border: none; padding: 15px 30px; border-radius: 50px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; width: 100%; font-weight: bold; margin-top: 10px; }
+        button:hover { background-color: #a8c3bc; transform: translateY(-2px); }
+        #status { margin-top: 1rem; font-size: 0.9rem; color: #666; min-height: 1.2rem; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>打卡系統</h2>
-    <input type="text" id="username" placeholder="請輸入姓名"><br>
+    <h2 id="greeting">歡迎使用打卡系統</h2>
+    <div id="inputArea">
+        <input type="text" id="username" placeholder="請輸入您的姓名">
+    </div>
     <button onclick="handleCheckIn()">立即打卡</button>
     <p id="status"></p>
 </div>
 
 <script>
-    // --- 【老師註解：請在這裡修改你的設定】 ---
-    const TARGET_LAT = 25.08405444756406; // 目標緯度
-    const TARGET_LNG = 121.54036143665965; // 目標經度
-    const MAX_DISTANCE = 0.2;    // 允許誤差範圍（單位：公里），0.2 代表 200 公尺
-    const WEB_APP_URL = "你的Google_Apps_Script網址"; // 貼上你在第二步得到的網址
-    // ---------------------------------------
+    // --- 【設定區】 ---
+    const TARGET_LAT = 25.0339; 
+    const TARGET_LNG = 121.5644; 
+    const MAX_DISTANCE = 0.2;    
+    const WEB_APP_URL = "你的Google_Apps_Script網址"; 
+    // ----------------
+
+    // 頁面開啟時自動執行：檢查網址裡有沒有名字
+    const urlParams = new URLSearchParams(window.location.search);
+    const nameFromUrl = urlParams.get('name');
+    
+    if (nameFromUrl) {
+        document.getElementById('greeting').innerText = nameFromUrl + "，你好！";
+        document.getElementById('inputArea').style.display = 'none'; // 隱藏輸入框
+    }
 
     function handleCheckIn() {
-        const name = document.getElementById('username').value;
-        if (!name) return alert("請先輸入姓名");
-        
-        document.getElementById('status').innerText = "正在確認您的位置...";
+        const name = nameFromUrl || document.getElementById('username').value;
+        if (!name) return alert("請輸入或確認姓名");
 
-        // 啟動瀏覽器的定位功能
+        document.getElementById('status').innerText = "定位中...";
+
         navigator.geolocation.getCurrentPosition(function(position) {
             const userLat = position.coords.latitude;
             const userLng = position.coords.longitude;
-            
-            // 計算你跟目標的距離
             const distance = getDistance(userLat, userLng, TARGET_LAT, TARGET_LNG);
 
             if (distance <= MAX_DISTANCE) {
                 sendData(name, userLat, userLng);
             } else {
-                document.getElementById('status').innerText = "打卡失敗：您距離目標還有 " + (distance * 1000).toFixed(0) + " 公尺。";
-                alert("你還沒到喔！");
+                document.getElementById('status').innerText = "距離太遠：" + (distance * 1000).toFixed(0) + " 公尺";
+                alert("你還沒到公司喔！");
             }
         }, function(error) {
-            alert("無法取得位置，請確保已開啟 GPS 並授權網頁存取權限。");
+            alert("請開啟 GPS 定位權限");
         });
     }
 
-    // 這就是工程老師提到的「哈弗辛公式」數學邏輯
     function getDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371; // 地球半徑 (km)
+        const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; 
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     function sendData(name, lat, lng) {
-        const payload = {
-            name: name,
-            time: new Date().toLocaleString(),
-            location: "經緯度: " + lat.toFixed(4) + ", " + lng.toFixed(4)
-        };
-
+        document.getElementById('status').innerText = "傳送中...";
         fetch(WEB_APP_URL, {
             method: "POST",
-            body: JSON.stringify(payload)
-        })
-        .then(res => {
-            document.getElementById('status').innerText = "打卡成功！資料已存入雲端。";
-        })
-        .catch(err => alert("傳送失敗，請檢查網路或網址。"));
+            mode: 'no-cors', // 增加穩定性
+            body: JSON.stringify({
+                name: name,
+                time: new Date().toLocaleString('zh-TW', { hour12: false }),
+                location: lat.toFixed(4) + "," + lng.toFixed(4)
+            })
+        }).then(() => {
+            document.getElementById('status').innerText = "打卡成功！";
+            alert("打卡成功，祝你有美好的一天！");
+        }).catch(err => alert("傳送失敗"));
     }
 </script>
 
