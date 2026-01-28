@@ -104,26 +104,38 @@
 
 <script>
     // --- 【1. 設定區】 ---
-    const TARGET_LAT = 25.08405444756406; // 記得確認改為你的座標
+    const TARGET_LAT = 25.08405444756406; // 記得改為你的座標
     const TARGET_LNG = 121.54036143665965; 
     const MAX_DISTANCE = 0.2; 
-    const WEB_APP_URL = "1RI6rQ8b8Wh3ovs5ElRkzplkMUKog9WcX93UxgyoFvaI
-"; 
+    const WEB_APP_URL = "1RI6rQ8b8Wh3ovs5ElRkzplkMUKog9WcX93UxgyoFvaI"; 
 
-    // --- 【2. 核心邏輯：名字記憶與讀取】 ---
-    // 網頁一載入就執行，並確保名字被全域記住
-    const urlParams = new URLSearchParams(window.location.search);
-    let currentUser = urlParams.get('name') || localStorage.getItem('checkin_user_name') || "";
+    // 全域變數，用來存放當前使用者姓名
+    let currentUser = "";
 
-    if (currentUser) {
-        // 存入手機記憶體
-        localStorage.setItem('checkin_user_name', currentUser);
-        // 更新介面
-        document.addEventListener('DOMContentLoaded', () => {
+    // --- 【2. 核心：自動認人邏輯】 ---
+    // 這段要放在最前面，且用 DOMContentLoaded 包起來確保網頁載入後才執行
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const nameFromUrl = urlParams.get('name');
+        const savedName = localStorage.getItem('checkin_user_name');
+
+        // 判斷優先順序：網址 > 記憶體
+        if (nameFromUrl) {
+            currentUser = nameFromUrl;
+            localStorage.setItem('checkin_user_name', nameFromUrl);
+        } else if (savedName) {
+            currentUser = savedName;
+        }
+
+        // 如果認出是誰了，就把名字秀出來，並藏起輸入框
+        if (currentUser) {
             document.getElementById('greeting').innerText = "HELLO, " + currentUser.toUpperCase();
             document.getElementById('inputArea').style.display = 'none';
-        });
-    }
+        }
+        
+        // 初始化時鐘
+        updateTime();
+    });
 
     // --- 【3. 時鐘功能】 ---
     function updateTime() {
@@ -133,19 +145,18 @@
         document.getElementById('time').innerText = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
     setInterval(updateTime, 1000);
-    document.addEventListener('DOMContentLoaded', updateTime);
 
     // --- 【4. 打卡邏輯】 ---
     function handleCheckIn() {
-        // 重新抓取一次名字，確保萬無一失
+        // 抓取名字：如果有自動認人就用它，沒有的話就抓輸入框的內容
         const finalName = currentUser || document.getElementById('username').value;
         
         if (!finalName || finalName.trim() === "") {
-            alert("Please enter your name");
+            alert("請輸入姓名或使用專屬連結！");
             return;
         }
 
-        document.getElementById('status').innerText = "📍 LOCATING...";
+        document.getElementById('status').innerText = "📍 正在定位...";
 
         navigator.geolocation.getCurrentPosition(function(position) {
             const distance = getDistance(position.coords.latitude, position.coords.longitude, TARGET_LAT, TARGET_LNG);
@@ -159,14 +170,14 @@
                 });
                 sendData(finalName, position.coords.latitude, position.coords.longitude);
             } else {
-                document.getElementById('status').innerText = "❌ TOO FAR (" + (distance * 1000).toFixed(0) + "m)";
-                alert("您不在打卡範圍內喔！");
+                document.getElementById('status').innerText = "❌ 距離太遠 (" + (distance * 1000).toFixed(0) + "m)";
             }
         }, function(error) {
-            alert("無法獲取位置，請開啟 GPS 權限");
-        }, { enableHighAccuracy: true });
+            alert("請開啟 GPS 定位權限");
+        });
     }
 
+    // 計算距離
     function getDistance(lat1, lon1, lat2, lon2) {
         const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -175,8 +186,9 @@
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
+    // 傳送資料到 Google
     function sendData(name, lat, lng) {
-        document.getElementById('status').innerText = "🚀 SENDING...";
+        document.getElementById('status').innerText = "🚀 傳送中...";
         fetch(WEB_APP_URL, {
             method: "POST",
             mode: 'no-cors',
@@ -186,15 +198,14 @@
                 location: lat.toFixed(4) + "," + lng.toFixed(4)
             })
         }).then(() => {
-            document.getElementById('status').innerText = "✅ CHECKED IN!";
-        }).catch(err => {
-            alert("傳送失敗，請檢查網路");
-        });
+            document.getElementById('status').innerText = "✅ 打卡成功！";
+        }).catch(err => alert("失敗"));
     }
 </script>
 
 </body>
 </html>
+
 
 
 
