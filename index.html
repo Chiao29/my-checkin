@@ -1,66 +1,151 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雲端打卡系統</title>
+    <title>極簡雲端打卡</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #f0f5f5; margin: 0; }
-        .card { background: white; padding: 2.5rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; width: 80%; max-width: 400px; }
-        h2 { color: #5a7d75; margin-bottom: 1.5rem; }
-        input { padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; width: 100%; box-sizing: border-box; }
-        button { background-color: #c1d8d3; color: #333; border: none; padding: 15px 30px; border-radius: 50px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; width: 100%; font-weight: bold; margin-top: 10px; }
-        button:hover { background-color: #a8c3bc; transform: translateY(-2px); }
-        #status { margin-top: 1rem; font-size: 0.9rem; color: #666; min-height: 1.2rem; }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Montserrat', "Microsoft JhengHei", sans-serif;
+            color: white;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 30px;
+            padding: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            width: 85%;
+            max-width: 420px;
+        }
+
+        #greeting { font-size: 1.2rem; font-weight: 300; letter-spacing: 2px; margin-bottom: 10px; }
+
+        /* 時鐘優化 */
+        #time {
+            font-size: 4.5rem;
+            font-weight: 700;
+            margin: 5px 0;
+            letter-spacing: -2px;
+        }
+
+        #date {
+            font-size: 1.1rem;
+            opacity: 0.7;
+            margin-bottom: 30px;
+            font-weight: 300;
+        }
+
+        #inputArea input {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: none;
+            border-radius: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .check-in-btn {
+            padding: 18px 30px;
+            border: none;
+            border-radius: 50px;
+            background: #fff;
+            color: #764ba2;
+            font-size: 1.3rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 100%;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .check-in-btn:active { transform: scale(0.9); }
+        .check-in-btn:hover { background: #f0f0f0; box-shadow: 0 15px 25px rgba(0,0,0,0.2); }
+
+        #status { margin-top: 25px; font-size: 0.9rem; min-height: 1.5rem; font-weight: 300; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2 id="greeting">歡迎使用打卡系統</h2>
+<div class="glass-card">
+    <div id="greeting">READY TO WORK</div>
+    <div id="time">00:00</div>
+    <div id="date">Loading...</div>
+
     <div id="inputArea">
-        <input type="text" id="username" placeholder="請輸入您的姓名">
+        <input type="text" id="username" placeholder="NAME">
     </div>
-    <button onclick="handleCheckIn()">立即打卡</button>
-    <p id="status"></p>
+    
+    <button class="check-in-btn" onclick="handleCheckIn()">SIGN IN</button>
+    <div id="status"></div>
 </div>
 
 <script>
     // --- 【設定區】 ---
-    const TARGET_LAT = 25.08405444756406; 
-    const TARGET_LNG = 121.54036143665965; 
-    const MAX_DISTANCE = 0.2;    
+    const TARGET_LAT = 25.08405444756406; // 記得改
+    const TARGET_LNG = 121.54036143665965; // 記得改
+    const MAX_DISTANCE = 0.2; 
     const WEB_APP_URL = "你的Google_Apps_Script網址"; 
     // ----------------
 
-    // 頁面開啟時自動執行：檢查網址裡有沒有名字
+    function updateTime() {
+        const now = new Date();
+        // 預設為使用者本地時間，解決時區問題
+        const dateOptions = { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' };
+        document.getElementById('date').innerText = now.toLocaleDateString('zh-TW', dateOptions);
+        document.getElementById('time').innerText = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+
     const urlParams = new URLSearchParams(window.location.search);
     const nameFromUrl = urlParams.get('name');
-    
     if (nameFromUrl) {
-        document.getElementById('greeting').innerText = nameFromUrl + "，你好！";
-        document.getElementById('inputArea').style.display = 'none'; // 隱藏輸入框
+        document.getElementById('greeting').innerText = "HELLO, " + nameFromUrl.toUpperCase();
+        document.getElementById('inputArea').style.display = 'none';
     }
 
     function handleCheckIn() {
         const name = nameFromUrl || document.getElementById('username').value;
-        if (!name) return alert("請輸入或確認姓名");
+        if (!name) return alert("Please enter your name");
 
-        document.getElementById('status').innerText = "定位中...";
+        document.getElementById('status').innerText = "📍 LOCATING...";
 
         navigator.geolocation.getCurrentPosition(function(position) {
-            const userLat = position.coords.latitude;
-            const userLng = position.coords.longitude;
-            const distance = getDistance(userLat, userLng, TARGET_LAT, TARGET_LNG);
+            const distance = getDistance(position.coords.latitude, position.coords.longitude, TARGET_LAT, TARGET_LNG);
 
             if (distance <= MAX_DISTANCE) {
-                sendData(name, userLat, userLng);
+                // 成功：觸發五彩碎紙效果！
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#ffffff', '#764ba2', '#667eea']
+                });
+                sendData(name, position.coords.latitude, position.coords.longitude);
             } else {
-                document.getElementById('status').innerText = "距離太遠：" + (distance * 1000).toFixed(0) + " 公尺";
-                alert("你還沒到公司喔！");
+                document.getElementById('status').innerText = "❌ TOO FAR (" + (distance * 1000).toFixed(0) + "m)";
             }
-        }, function(error) {
-            alert("請開啟 GPS 定位權限");
+        }, function() {
+            alert("Please enable GPS");
         });
     }
 
@@ -73,22 +158,20 @@
     }
 
     function sendData(name, lat, lng) {
-        document.getElementById('status').innerText = "傳送中...";
+        document.getElementById('status').innerText = "🚀 SENDING...";
         fetch(WEB_APP_URL, {
             method: "POST",
-            mode: 'no-cors', // 增加穩定性
+            mode: 'no-cors',
             body: JSON.stringify({
                 name: name,
                 time: new Date().toLocaleString('zh-TW', { hour12: false }),
                 location: lat.toFixed(4) + "," + lng.toFixed(4)
             })
         }).then(() => {
-            document.getElementById('status').innerText = "打卡成功！";
-            alert("打卡成功，祝你有美好的一天！");
-        }).catch(err => alert("傳送失敗"));
+            document.getElementById('status').innerText = "✅ CHECKED IN SUCCESSFULLY!";
+        });
     }
 </script>
 
 </body>
 </html>
-
