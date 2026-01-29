@@ -103,23 +103,20 @@
 </div>
 
 <script>
-    // --- 【1. 設定區】 ---
+    // --- 【1. 個人設定區】 ---
     const TARGET_LAT = 25.08405444756406; // 記得改為你的座標
     const TARGET_LNG = 121.54036143665965; 
     const MAX_DISTANCE = 0.2; 
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6pMjNhQ8-EcAUnMQe_GRMeEpPzn8cfiUWgumZ10lagKcADJmUXo0c2S60Pu5rMF99GQ/exec"; 
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzD5qwhb66ft8hytlgMwZ4DEwGQXzUYF1XaktzXRGWTnEQ3Pe2G5cwdCvxvA0CEj97NrQ/exec"; 
 
-    // 全域變數，用來存放當前使用者姓名
     let currentUser = "";
 
-    // --- 【2. 核心：自動認人邏輯】 ---
-    // 這段要放在最前面，且用 DOMContentLoaded 包起來確保網頁載入後才執行
+    // --- 【2. 頁面初始化：自動認人與時鐘】 ---
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const nameFromUrl = urlParams.get('name');
         const savedName = localStorage.getItem('checkin_user_name');
 
-        // 判斷優先順序：網址 > 記憶體
         if (nameFromUrl) {
             currentUser = nameFromUrl;
             localStorage.setItem('checkin_user_name', nameFromUrl);
@@ -127,28 +124,24 @@
             currentUser = savedName;
         }
 
-        // 如果認出是誰了，就把名字秀出來，並藏起輸入框
         if (currentUser) {
             document.getElementById('greeting').innerText = "HELLO, " + currentUser.toUpperCase();
             document.getElementById('inputArea').style.display = 'none';
         }
         
-        // 初始化時鐘
         updateTime();
+        setInterval(updateTime, 1000);
     });
 
-    // --- 【3. 時鐘功能】 ---
     function updateTime() {
         const now = new Date();
         const dateOptions = { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' };
         document.getElementById('date').innerText = now.toLocaleDateString('zh-TW', dateOptions);
         document.getElementById('time').innerText = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
-    setInterval(updateTime, 1000);
 
-    // --- 【4. 打卡邏輯】 ---
+    // --- 【3. 打卡核心邏輯】 ---
     function handleCheckIn() {
-        // 抓取名字：如果有自動認人就用它，沒有的話就抓輸入框的內容
         const finalName = currentUser || document.getElementById('username').value;
         
         if (!finalName || finalName.trim() === "") {
@@ -156,7 +149,11 @@
             return;
         }
 
-        document.getElementById('status').innerText = "📍 正在定位...";
+        // 自動判斷目前是「上班」還是「下班」
+        const now = new Date();
+        const type = now.getHours() < 13 ? "上班" : "下班";
+
+        document.getElementById('status').innerText = "📍 正在定位 " + type + " 位置...";
 
         navigator.geolocation.getCurrentPosition(function(position) {
             const distance = getDistance(position.coords.latitude, position.coords.longitude, TARGET_LAT, TARGET_LNG);
@@ -168,16 +165,35 @@
                     origin: { y: 0.6 },
                     colors: ['#ffffff', '#764ba2', '#667eea']
                 });
-                sendData(finalName, position.coords.latitude, position.coords.longitude);
+                sendData(finalName, position.coords.latitude, position.coords.longitude, type);
             } else {
                 document.getElementById('status').innerText = "❌ 距離太遠 (" + (distance * 1000).toFixed(0) + "m)";
+                alert("你離打卡點太遠囉！");
             }
         }, function(error) {
-            alert("請開啟 GPS 定位權限");
+            alert("定位失敗，請確保開啟 GPS 並授權瀏覽器位置存取。");
+        }, { enableHighAccuracy: true, timeout: 10000 });
+    }
+
+    // --- 【4. 傳送資料到 Google】 ---
+    function sendData(name, lat, lng, type) {
+        document.getElementById('status').innerText = "🚀 正在寫入" + type + "紀錄...";
+        
+        fetch(WEB_APP_URL, {
+            method: "POST",
+            mode: 'no-cors',
+            body: JSON.stringify({
+                name: name,
+                location: lat.toFixed(4) + "," + lng.toFixed(4)
+            })
+        }).then(() => {
+            document.getElementById('status').innerText = "✅ " + type + "打卡成功！";
+        }).catch(err => {
+            document.getElementById('status').innerText = "❌ 傳送失敗，請重試";
         });
     }
 
-    // 計算距離
+    // --- 【5. 距離計算輔助函數】 ---
     function getDistance(lat1, lon1, lat2, lon2) {
         const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -185,26 +201,11 @@
         const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
-
-    // 傳送資料到 Google
-    function sendData(name, lat, lng) {
-        document.getElementById('status').innerText = "🚀 傳送中...";
-        fetch(WEB_APP_URL, {
-            method: "POST",
-            mode: 'no-cors',
-            body: JSON.stringify({
-                name: name,
-                time: new Date().toLocaleString('zh-TW', { hour12: false }),
-                location: lat.toFixed(4) + "," + lng.toFixed(4)
-            })
-        }).then(() => {
-            document.getElementById('status').innerText = "✅ 打卡成功！";
-        }).catch(err => alert("失敗"));
-    }
 </script>
 
 </body>
 </html>
+
 
 
 
